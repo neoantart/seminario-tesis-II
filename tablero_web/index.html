@@ -1,0 +1,112 @@
+<meta charset="utf-8">
+<title>Alerta Climática Puno</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: cabecera con filtros, fila de indicadores, 2 columnas de gráficos, tabla de aciertos */
+:root{--bg:#f3f6f8;--panel:#ffffff;--fg:#14232e;--muted:#5c6f7c;--line:#dbe3e8;--accent:#1d6f8c;--obs:#14232e;--pred:#d9731f;
+--ok:#2f8f5b;--warn:#d9a21f;--crit:#c43d3d;--head:'Space Grotesk','Segoe UI',sans-serif;--body:'Inter','Segoe UI',sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e171d;--panel:#16232c;--fg:#e6eef3;--muted:#93a7b4;--line:#27394450;--accent:#5bb4d4;--obs:#e6eef3;--pred:#f0914a;--ok:#4fc283;--warn:#e8b94a;--crit:#e66767;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e171d;--panel:#16232c;--fg:#e6eef3;--muted:#93a7b4;--line:#27394450;--accent:#5bb4d4;--obs:#e6eef3;--pred:#f0914a;--ok:#4fc283;--warn:#e8b94a;--crit:#e66767;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+h1{font:700 1.5rem/1.15 var(--head);margin:0;text-wrap:balance}
+.sub{color:var(--muted);font-size:.85rem;margin-top:4px}
+.filters{display:flex;flex-wrap:wrap;gap:10px}
+label{display:flex;flex-direction:column;gap:3px;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+select{font:500 .9rem var(--body);background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-width:150px}
+select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;min-width:0}
+.kpi .t{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.kpi .v{font:700 1.8rem/1.2 var(--head);font-variant-numeric:tabular-nums}
+.kpi .d{font-size:.78rem;color:var(--muted)}
+.kpi.frio .v{color:var(--accent)} .kpi.lluvia .v{color:var(--pred)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;min-width:0}
+.card h2{font:600 .95rem var(--head);margin:0 0 2px}
+.card p{margin:0 0 8px;font-size:.78rem;color:var(--muted)}
+.ch{position:relative;height:230px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.82rem;font-variant-numeric:tabular-nums}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:600;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:.74rem;font-weight:600;color:#fff}
+.n0{background:var(--ok)}.n1{background:var(--warn);color:#2b2100}.n2{background:var(--crit)}
+.note{font-size:.76rem;color:var(--muted);line-height:1.45}
+</style>
+<div class="wrap">
+<header>
+ <div><h1>Alerta climática en Puno</h1>
+ <div class="sub">Prototipo del tablero · predicciones a 1 día, periodo de prueba 2018–2026 · modelo TFT</div></div>
+ <div class="filters">
+  <label>Estación<select id="st"></select></label>
+  <label>Periodo<select id="yr"></select></label>
+ </div>
+</header>
+<section class="kpis" id="kpis"></section>
+<section class="grid">
+ <div class="card"><h2>Temperatura media: observada y predicha</h2><p>Predicción a un día (XGBoost), °C</p><div class="ch"><canvas id="c1"></canvas></div>
+  <div class="legend"><span><i style="background:var(--obs)"></i>Observada</span><span><i style="background:var(--pred)"></i>Predicha</span></div></div>
+ <div class="card"><h2>Precipitación diaria y umbral de lluvia intensa</h2><p>mm por día; la línea marca el percentil 95 de la estación</p><div class="ch"><canvas id="c2"></canvas></div>
+  <div class="legend"><span><i style="background:var(--accent)"></i>Observada</span><span><i style="background:var(--pred)"></i>Predicha</span><span><i style="background:var(--crit)"></i>Umbral P95</span></div></div>
+ <div class="card"><h2>Probabilidad de día frío extremo</h2><p>Probabilidad estimada por el TFT; líneas: umbrales de Vigilancia y Alerta</p><div class="ch"><canvas id="c3"></canvas></div>
+  <div class="legend"><span><i style="background:var(--accent)"></i>Probabilidad</span><span><i style="background:var(--crit)"></i>Evento ocurrido</span></div></div>
+ <div class="card"><h2>Probabilidad de lluvia intensa</h2><p>Probabilidad estimada por el TFT; líneas: umbrales de Vigilancia y Alerta</p><div class="ch"><canvas id="c4"></canvas></div>
+  <div class="legend"><span><i style="background:var(--pred)"></i>Probabilidad</span><span><i style="background:var(--crit)"></i>Evento ocurrido</span></div></div>
+</section>
+<section class="card"><h2>Aciertos por nivel de alerta</h2><p>Cuántos días cayeron en cada nivel y con qué frecuencia ocurrió el evento al día siguiente</p>
+ <div class="scroll"><table id="tb"></table></div></section>
+<p class="note">Datos: predicciones del periodo de prueba (2018–2026) generadas con series diarias del SENAMHI. Día frío extremo: temperatura media ≤ percentil 5 de la estación (aproximación de helada, pues no se dispone de temperatura mínima). Lluvia intensa: precipitación ≥ percentil 95 de los días con lluvia ≥ 1 mm. Los niveles son indicativos; la mayoría de las alertas de lluvia intensa son falsas alarmas. El mapa de estaciones se agregará cuando se disponga de coordenadas.</p>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const TH={ll:0.2466,fr:0.6075};
+let DATA=null,charts=[];
+const $=id=>document.getElementById(id);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt=n=>n.toLocaleString('es-PE');
+function sel(){const k=$('st').value,y=$('yr').value,s=DATA[k];const idx=[];
+ s.f.forEach((f,i)=>{if(y==='Todo'||f.startsWith(y))idx.push(i)});return {k,s,idx}}
+function pick(a,idx){return idx.map(i=>a[i])}
+function render(){
+ const {k,s,idx}=sel();const f=pick(s.f,idx);
+ const rate=(nv,ev)=>{let d=[0,0,0],e=[0,0,0];idx.forEach(i=>{if(s[ev][i]==null)return;d[s[nv][i]]++;e[s[nv][i]]+=s[ev][i]});return {d,e}};
+ const fr=rate('nfr','efr'),ll=rate('nll','ell');
+ const cap=(r)=>{const tot=r.e[0]+r.e[1]+r.e[2];return tot?Math.round(100*(r.e[1]+r.e[2])/tot):0};
+ $('kpis').innerHTML=[
+  ['frio','Días en Alerta · frío extremo',fmt(fr.d[2]),'Eventos capturados (Vigilancia o Alerta): '+cap(fr)+' %'],
+  ['frio','Frío extremo ocurrido tras Alerta',(fr.d[2]?Math.round(100*fr.e[2]/fr.d[2]):0)+' %','frente a '+(fr.d[0]?(100*fr.e[0]/fr.d[0]).toFixed(1):0)+' % en nivel Normal'],
+  ['lluvia','Días en Alerta · lluvia intensa',fmt(ll.d[2]),'Eventos capturados (Vigilancia o Alerta): '+cap(ll)+' %'],
+  ['lluvia','Lluvia intensa ocurrida tras Alerta',(ll.d[2]?Math.round(100*ll.e[2]/ll.d[2]):0)+' %','frente a '+(ll.d[0]?(100*ll.e[0]/ll.d[0]).toFixed(1):0)+' % en nivel Normal']
+ ].map(x=>`<div class="kpi ${x[0]}"><div class="t">${x[1]}</div><div class="v">${x[2]}</div><div class="d">${x[3]}</div></div>`).join('');
+ const row=(nm,r,i)=>`<tr><td><span class="pill n${i}">${nm}</span></td><td>${fmt(r.d[i])}</td><td>${fmt(r.e[i])}</td><td>${r.d[i]?(100*r.e[i]/r.d[i]).toFixed(1).replace('.',','):'–'} %</td></tr>`;
+ const blk=(t,r)=>`<tr><th colspan="4" style="text-align:left;padding-top:12px">${t}</th></tr>`+['Normal','Vigilancia','Alerta'].map((n,i)=>row(n,r,i)).join('');
+ $('tb').innerHTML='<tr><th>Nivel</th><th>Días</th><th>Eventos</th><th>Tasa de evento</th></tr>'+blk('Día frío extremo',fr)+blk('Lluvia intensa',ll);
+ const fg=css('--muted'),grid=css('--line');
+ charts.forEach(c=>c.destroy());charts=[];
+ const base=(extra)=>({responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+  plugins:{legend:{display:false},tooltip:{}},elements:{point:{radius:0}},
+  scales:{x:{ticks:{color:fg,maxTicksLimit:7,maxRotation:0},grid:{display:false}},y:{ticks:{color:fg},grid:{color:grid},...extra}}});
+ const lab=f.map(x=>x);
+ charts.push(new Chart($('c1'),{type:'line',data:{labels:lab,datasets:[{data:pick(s.tmo,idx),borderColor:css('--obs'),borderWidth:1.2},{data:pick(s.tmp,idx),borderColor:css('--pred'),borderWidth:1.2}]},options:base({})}));
+ charts.push(new Chart($('c2'),{type:'bar',data:{labels:lab,datasets:[{type:'bar',data:pick(s.pto,idx),backgroundColor:css('--accent'),barThickness:2},{type:'line',data:pick(s.ptp,idx),borderColor:css('--pred'),borderWidth:1},{type:'line',data:lab.map(()=>s.ull),borderColor:css('--crit'),borderDash:[5,4],borderWidth:1.2}]},options:base({beginAtZero:true})}));
+ const prob=(c,key,ev,th,col)=>{const p=pick(s[key],idx),e=pick(s[ev],idx);
+  charts.push(new Chart($(c),{type:'line',data:{labels:lab,datasets:[{data:p,borderColor:css(col),borderWidth:1,fill:true,backgroundColor:css(col)+'22'},{type:'line',data:e.map(v=>v===1?1.04:null),showLine:false,pointStyle:'triangle',pointRadius:3,backgroundColor:css('--crit'),borderColor:css('--crit')},
+   {type:'line',data:lab.map(()=>th),borderColor:css('--crit'),borderDash:[5,4],borderWidth:1.2},{type:'line',data:lab.map(()=>th/2),borderColor:css('--warn'),borderDash:[2,3],borderWidth:1.2}]},
+   options:base({min:0,max:1.08,ticks:{color:fg,callback:v=>v<=1?v:''}})}));};
+ prob('c3','pfr','efr',TH.fr,'--accent');prob('c4','pll','ell',TH.ll,'--pred');
+}
+fetch('data.json').then(r=>r.json()).then(d=>{DATA=d;
+ $('st').innerHTML=Object.keys(d).map(k=>`<option>${k}</option>`).join('');$('st').value='Puno';
+ $('yr').innerHTML='<option>Todo</option>'+['2026','2025','2024','2023','2022','2021','2020','2019','2018'].map(y=>`<option>${y}</option>`).join('');$('yr').value='Todo';
+ $('st').onchange=$('yr').onchange=render;render();
+ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>setTimeout(render,50));
+});
+</script>
